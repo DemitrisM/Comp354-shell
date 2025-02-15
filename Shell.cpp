@@ -28,15 +28,18 @@ vector<string> Shell::TokenizeInput(const string &input){
     return tokens;
 }
 
-void ProcessCommand(const vector<string>& tokens){
+void Shell::ProcessCommand(const vector<string>& tokens){
     //Nothing entered
     if (tokens.empty()){
         return;
     }
 
     if(tokens[0] == "cd"){
-        if(tokens.size() !=2){
+        if(tokens.size() != 2){
             cerr<<"Error"<<endl;
+        }
+        else{
+
         }
     }
 }
@@ -50,6 +53,7 @@ void Shell::getUserInput(){
             break;
         }
         vector<string> tokens = TokenizeInput(input);
+        ProcessCommand(tokens);
     }
 }
 
