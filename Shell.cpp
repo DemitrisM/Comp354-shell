@@ -35,11 +35,21 @@ void Shell::ProcessCommand(const vector<string>& tokens){
     }
 
     if(tokens[0] == "cd"){
-        if(tokens.size() != 2){
-            cerr<<"Error"<<endl;
+        if (tokens.size() == 1){
+            //retrieves the value of the home directory
+            const char* home = getenv("HOME");
+            //if home is not set or we werent able to go the home directory, get an error message
+            if (home == nullptr || chdir(home) != 0) {
+                cerr << "Error" << endl;
+            }
+        }
+        else if(tokens.size() == 2){
+            if(chdir(tokens[1].c_str()) !=0){
+                cerr<<"Error"<<endl;
+            }
         }
         else{
-
+            cerr<<"Error"<<endl;
         }
     }
 }
