@@ -18,6 +18,7 @@ private:
     void ProcessCommand(const vector<string>& tokens);
     void ProcessLS(const vector<string>& tokens);
     void ProcessCD(const vector<string>& tokens);
+    string GetCurrentDirectory();
 };
 
 //returns a vector containing the strings as tokens
@@ -30,6 +31,16 @@ vector<string> Shell::TokenizeInput(const string &input){
         tokens.push_back(token);
     }
     return tokens;
+}
+
+string Shell::GetCurrentDirectory(){
+    char cwd[PATH_MAX];
+    if (getcwd(cwd, sizeof(cwd)) != nullptr) {
+        return string(cwd);
+    } else {
+        perror("getcwd failed");
+        return "unknown";
+    }
 }
 
 void Shell::ProcessCommand(const vector<string>& tokens){
@@ -51,10 +62,9 @@ void Shell::ProcessCommand(const vector<string>& tokens){
             cerr<<"Error"<<endl;
             return;
         }
-        char cwd[PATH_MAX];
-        if (getcwd(cwd, sizeof(cwd)) != nullptr) {
-            cout << cwd << endl; 
-        }
+        string current_directory;
+        current_directory = GetCurrentDirectory();
+        cout<<current_directory<<endl;
     }
 
     else{
