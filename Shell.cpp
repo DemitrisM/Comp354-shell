@@ -4,6 +4,7 @@
 #include <vector>
 #include <sstream>
 #include <bits/stdc++.h>
+#include <sys/wait.h>
 using namespace std;
 
 class Shell {
@@ -16,7 +17,7 @@ private:
     void ProcessCommand(const vector<string>& tokens);
 };
 
-//Returns a vector containing the strings as tokens
+//returns a vector containing the strings as tokens
 vector<string> Shell::TokenizeInput(const string &input){
     string token;
     vector<string> tokens;
@@ -34,7 +35,36 @@ void Shell::ProcessCommand(const vector<string>& tokens){
         return;
     }
 
-    if(tokens[0] == "cd"){
+    if (tokens[0] == "ls") {
+        //execv() requires a C-style array of char* so we convert the vector of string into that
+        vector<char*> args;
+        //converts each string in the tokens vector into a non const char
+        for (const auto &token : tokens) {
+            args.push_back(const_cast<char*>(token.c_str()));
+        }
+        //adds a null pointer at the end of the args vector
+        args.push_back(nullptr);
+        pid_t pid = fork();
+        if (pid < 0) {
+            //if fork() returns a negative value, output an error message.
+            cerr << "Fork failed" << endl;
+            return;
+        } else if (pid == 0) {
+            // ls is located at /bin/ls,if it succeeds, the current process image is replaced by the ls program,
+            // and nothing below this line in the child program is executed, if it fails it returns -1 
+            if (execv("/bin/ls", args.data()) == -1) {
+                perror("execv failed");
+                exit(1);
+            }
+        } else {
+            //wait for the child proceess to finish executing
+            int status;
+            waitpid(pid, &status, 0);
+        }
+        return;  // After executing ls, return from ProcessCommand.
+    }
+    
+    else if(tokens[0] == "cd"){
         if (tokens.size() == 1){
             //retrieves the value of the home directory
             const char* home = getenv("HOME");
@@ -52,15 +82,21 @@ void Shell::ProcessCommand(const vector<string>& tokens){
             cerr<<"Error"<<endl;
         }
     }
+
+    else{
+        cout <<tokens[0]<< ": Command not found " << endl;
+    }
+
+
 }
 void Shell::getUserInput(){
     while(true){
         cout << "Shell:~$ ";
         if(!getline(cin, input)){
-            break;
+            return;
         }
         else if(input == "exit"){
-            break;
+            return;
         }
         vector<string> tokens = TokenizeInput(input);
         ProcessCommand(tokens);
