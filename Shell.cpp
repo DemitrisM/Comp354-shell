@@ -5,6 +5,7 @@
 #include <sstream>
 #include <bits/stdc++.h>
 #include <sys/wait.h>
+#include <limits.h>
 using namespace std;
 
 class Shell {
@@ -16,6 +17,7 @@ private:
     vector<string> TokenizeInput(const string &input);
     void ProcessCommand(const vector<string>& tokens);
     void ProcessLS(const vector<string>& tokens);
+    void ProcessCD(const vector<string>& tokens);
 };
 
 //returns a vector containing the strings as tokens
@@ -41,21 +43,17 @@ void Shell::ProcessCommand(const vector<string>& tokens){
     }
     
     else if(tokens[0] == "cd"){
-        if (tokens.size() == 1){
-            //retrieves the value of the home directory
-            const char* home = getenv("HOME");
-            //if home is not set or we werent able to go the home directory, get an error message
-            if (home == nullptr || chdir(home) != 0) {
-                cerr << "Error" << endl;
-            }
-        }
-        else if(tokens.size() == 2){
-            if(chdir(tokens[1].c_str()) !=0){
-                cerr<<"Error"<<endl;
-            }
-        }
-        else{
+        ProcessCD(tokens);   
+    }
+
+    else if(tokens[0] == "pwd"){
+        if (tokens.size() != 1){
             cerr<<"Error"<<endl;
+            return;
+        }
+        char cwd[PATH_MAX];
+        if (getcwd(cwd, sizeof(cwd)) != nullptr) {
+            cout << cwd << endl; 
         }
     }
 
@@ -92,6 +90,25 @@ void Shell::ProcessLS(const vector<string>& tokens){
     }
     return;  // After executing ls, return from ProcessCommand.
 
+}
+
+void Shell::ProcessCD(const vector<string>& tokens){
+    if (tokens.size() == 1){
+        //retrieves the value of the home directory
+        const char* home = getenv("HOME");
+        //if home is not set or we werent able to go the home directory, get an error message
+        if (home == nullptr || chdir(home) != 0) {
+            cerr << "Error" << endl;
+        }
+    }
+    else if(tokens.size() == 2){
+        if(chdir(tokens[1].c_str()) !=0){
+            cerr<<"Error"<<endl;
+        }
+    }
+    else{
+        cerr<<"Error"<<endl;
+    }
 }
 
 void Shell::getUserInput(){
