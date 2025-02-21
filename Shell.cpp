@@ -19,6 +19,7 @@ private:
     void ProcessLS(const vector<string>& tokens);
     void ProcessCD(const vector<string>& tokens);
     string GetCurrentDirectory();
+    string GetUser();
 };
 
 //returns a vector containing the strings as tokens
@@ -62,9 +63,7 @@ void Shell::ProcessCommand(const vector<string>& tokens){
             cerr<<"Error"<<endl;
             return;
         }
-        string current_directory;
-        current_directory = GetCurrentDirectory();
-        cout<<current_directory<<endl;
+        cout<<GetCurrentDirectory()<<endl;
     }
 
     else{
@@ -98,7 +97,8 @@ void Shell::ProcessLS(const vector<string>& tokens){
         int status;
         waitpid(pid, &status, 0);
     }
-    return;  // After executing ls, return from ProcessCommand.
+    // After executing ls, return from ProcessCommand.
+    return;  
 
 }
 
@@ -121,9 +121,16 @@ void Shell::ProcessCD(const vector<string>& tokens){
     }
 }
 
+string Shell::GetUser(){
+    string user = "Shell";
+    string host = "COMP354";
+    string cwd = GetCurrentDirectory();
+    return user + "@" + host + ":" + cwd + "$ ";
+}
+
 void Shell::getUserInput(){
     while(true){
-        cout << "Shell:~$ ";
+        cout << GetUser();
         if(!getline(cin, input)){
             return;
         }
