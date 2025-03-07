@@ -92,6 +92,13 @@ void Shell::ProcessCommand(const vector<string>& tokens){
         }
         ProcessBatchFile(tokens[1]);
     }
+    else if(tokens[0] == "exit"){
+        if (tokens.size() != 1){
+            cerr<<"Error"<<endl;
+            return;
+        }
+        exit(0);
+    }
 
     else{
         cout <<tokens[0]<< ": Command not found " << endl;
