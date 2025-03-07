@@ -11,6 +11,7 @@ using namespace std;
 class Shell {
 public:
     void getUserInput();
+    void ProcessBatchFile(const string &file);
 
 private:
     string input;
@@ -22,7 +23,6 @@ private:
     string GetUser();
 };
 
-//returns a vector containing the strings as tokens
 vector<string> Shell::TokenizeInput(const string &input){
     string token;
     vector<string> tokens;
@@ -31,7 +31,27 @@ vector<string> Shell::TokenizeInput(const string &input){
     while(Stream>>token){
         tokens.push_back(token);
     }
+    //returns a vector containing the strings as tokens
     return tokens;
+}
+
+void Shell::ProcessBatchFile(const string &file) {
+    ifstream batchFile(file);
+    if (!batchFile.is_open()) {
+        cerr << "Error: Cannot open batch file: " << file << endl;
+        return;
+    }
+    
+    string line;
+    //If batch mode is invoked from within our shell,don't print a prompt.
+    while(getline(batchFile, line)) {
+        //Skip empty lines.
+        if (line.empty())
+            continue;
+        vector<string> tokens = TokenizeInput(line);
+        ProcessCommand(tokens);
+    }
+    batchFile.close();
 }
 
 string Shell::GetCurrentDirectory(){
@@ -64,6 +84,13 @@ void Shell::ProcessCommand(const vector<string>& tokens){
             return;
         }
         cout<<GetCurrentDirectory()<<endl;
+    }
+    else if(tokens[0] == "bash"){
+        if(tokens.size() != 2){
+            cerr<<"Error"<<endl;
+            return;
+        }
+        ProcessBatchFile(tokens[1]);
     }
 
     else{
