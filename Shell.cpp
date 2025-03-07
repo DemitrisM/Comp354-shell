@@ -168,9 +168,6 @@ void Shell::getUserInput(){
         if(!getline(cin, input)){
             return;
         }
-        else if(input == "exit"){
-            return;
-        }
         vector<string> tokens = TokenizeInput(input);
         ProcessCommand(tokens);
     }
