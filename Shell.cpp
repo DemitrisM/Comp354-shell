@@ -6,11 +6,12 @@
 #include <bits/stdc++.h>
 #include <sys/wait.h>
 #include <limits.h>
+#include <fcntl.h> 
 using namespace std;
 
 class Shell {
 public:
-    void getUserInput();
+    void GetUserInput();
     void ProcessBatchFile(const string &file);
 
 private:
@@ -19,6 +20,7 @@ private:
     void ProcessCommand(const vector<string>& tokens);
     void ProcessLS(const vector<string>& tokens);
     void ProcessCD(const vector<string>& tokens);
+    void ProcessExternalCommand(const vector<string>& tokens);
     string GetCurrentDirectory();
     string GetUser();
 };
@@ -33,6 +35,82 @@ vector<string> Shell::TokenizeInput(const string &input){
     }
     //returns a vector containing the strings as tokens
     return tokens;
+}
+
+void Shell::ProcessExternalCommand(const vector<string>& tokens) {
+    // Find the position of the redirection operator ">" if it exists.
+    size_t redirPos = -1;
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        if (tokens[i] == ">") {
+            redirPos = i;
+            break;
+        }
+    }
+    // Prepare a vector for the actual command arguments (excluding redirection parts).
+    vector<string> cmdTokens;
+    string outputFile;
+    
+    if (redirPos != (size_t)-1) {
+        // Ensure that there is exactly one token after ">"
+        if (redirPos + 1 >= tokens.size() || redirPos + 2 < tokens.size()) {
+            cerr << "Error: invalid redirection" << endl;
+            return;
+        }
+        // Command tokens are all tokens before the redirection operator.
+        for (size_t i = 0; i < redirPos; i++) {
+            cmdTokens.push_back(tokens[i]);
+        }
+        // The token immediately after ">" is the output filename.
+        outputFile = tokens[redirPos + 1];
+    } else {
+        // No redirection; use all tokens.
+        cmdTokens = tokens;
+    }
+    
+    // Convert cmdTokens to a C-style array for execvp.
+    vector<char*> args;
+    for (const auto &token : cmdTokens) {
+        args.push_back(const_cast<char*>(token.c_str()));
+    }
+    args.push_back(nullptr);
+    
+    // Fork a new process.
+    pid_t pid = fork();
+    if (pid < 0) {
+        cerr << "Fork failed" << endl;
+        return;
+    } else if (pid == 0) {
+        // In the child process, if redirection is required, set it up.
+        if (!outputFile.empty()) {
+            // Open the output file (create/truncate it).
+            int fd = open(outputFile.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
+            if (fd < 0) {
+                perror("open failed");
+                exit(1);
+            }
+            // Redirect stdout (fd 1) to the file descriptor.
+            if (dup2(fd, STDOUT_FILENO) < 0) {
+                perror("dup2 stdout failed");
+                exit(1);
+            }
+            // Optionally, redirect stderr (fd 2) to the file as well:
+            if (dup2(fd, STDERR_FILENO) < 0) {
+                perror("dup2 stderr failed");
+                exit(1);
+            }
+            // Close the file descriptor, as it's no longer needed directly.
+            close(fd);
+        }
+        // Execute the external command.
+        if (execvp(args[0], args.data()) == -1) {
+            perror("execvp failed");
+            exit(1);
+        }
+    } else {
+        // In the parent process, wait for the child to finish.
+        int status;
+        waitpid(pid, &status, 0);
+    }
 }
 
 void Shell::ProcessBatchFile(const string &file) {
@@ -64,44 +142,33 @@ string Shell::GetCurrentDirectory(){
     }
 }
 
-void Shell::ProcessCommand(const vector<string>& tokens){
-    //Nothing entered
-    if (tokens.empty()){
+void Shell::ProcessCommand(const vector<string>& tokens) {
+    if (tokens.empty())
         return;
-    }
 
-    if (tokens[0] == "ls") {
-        ProcessLS(tokens);
-    }
-    
-    else if(tokens[0] == "cd"){
-        ProcessCD(tokens);   
-    }
-
-    else if(tokens[0] == "pwd"){
-        if (tokens.size() != 1){
-            cerr<<"Error"<<endl;
+    if (tokens[0] == "cd") {
+        ProcessCD(tokens);
+    } else if (tokens[0] == "pwd") {
+        if (tokens.size() != 1) {
+            cerr << "Error" << endl;
             return;
         }
-        cout<<GetCurrentDirectory()<<endl;
-    }
-    else if(tokens[0] == "bash"){
-        if(tokens.size() != 2){
-            cerr<<"Error"<<endl;
+        cout << GetCurrentDirectory() << endl;
+    } else if (tokens[0] == "bash") {
+        if (tokens.size() != 2) {
+            cerr << "Error" << endl;
             return;
         }
         ProcessBatchFile(tokens[1]);
-    }
-    else if(tokens[0] == "exit"){
-        if (tokens.size() != 1){
-            cerr<<"Error"<<endl;
+    } else if (tokens[0] == "exit") {
+        if (tokens.size() != 1) {
+            cerr << "Error" << endl;
             return;
         }
         exit(0);
-    }
-
-    else{
-        cout <<tokens[0]<< ": Command not found " << endl;
+    } else {
+        //For any command that isn't built-in, process it as an external command.
+        ProcessExternalCommand(tokens);
     }
 }
 
@@ -162,7 +229,7 @@ string Shell::GetUser(){
     return user + "@" + host + ":" + cwd + "$ ";
 }
 
-void Shell::getUserInput(){
+void Shell::GetUserInput(){
     while(true){
         cout << GetUser();
         if(!getline(cin, input)){
@@ -173,8 +240,17 @@ void Shell::getUserInput(){
     }
 }
 
-int main(){
-    Shell shell;      
-    shell.getUserInput(); 
+int main(int argc, char* argv[]) {
+    Shell shell;
+    if (argc == 1) {
+        // Interactive mode.
+        shell.GetUserInput();
+    } else if (argc == 2) {
+        // Batch mode.
+        shell.ProcessBatchFile(argv[1]);
+    } else {
+        cerr << "Error: Too many arguments." << endl;
+        exit(1);
+    }
     return 0;
 }
