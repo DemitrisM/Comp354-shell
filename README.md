@@ -1,6 +1,6 @@
 # Custom UNIX shell
 This project is a simple Unix shell implemented in C++. It is designed as a learning tool to understand core concepts of Unix shell functionality, such as process creation, process management, command parsing, and inter-process communication.
-## Features Implemented
+## Features Implemented (as of 10/03/2025)
 
 - Interactive Mode:
   The shell runs in an interactive loop. It displays a dynamic prompt (showing a fixed username "Shell", a fixed host "COMP354", and the current working directory), reads user input, tokenizes the command, and then processes it.
