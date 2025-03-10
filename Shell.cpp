@@ -21,9 +21,54 @@ private:
     void ProcessLS(const vector<string>& tokens);
     void ProcessCD(const vector<string>& tokens);
     void ProcessExternalCommand(const vector<string>& tokens);
+    void ProcessParallelCommands(const string &input); 
+    string Trim(const string &str);
     string GetCurrentDirectory();
     string GetUser();
 };
+
+string Shell::Trim(const string &str) {
+    //Trims the whitespaces from the input
+    size_t first = str.find_first_not_of(" \t\n\r");
+    if (first == string::npos)
+        return "";
+    size_t last = str.find_last_not_of(" \t\n\r");
+    return str.substr(first, last - first + 1);
+}
+
+void Shell::ProcessParallelCommands(const string &input) {
+    //Split the input on '&' to get separate commands
+    vector<string> commands;
+    stringstream ss(input);
+    string command;
+    while(getline(ss, command, '&')) {
+        //Remove extra whitespace
+        command = Trim(command); 
+        if (!command.empty())
+            commands.push_back(command);
+    }
+
+    // Launch each command in its own child process.
+    vector<pid_t> pids;
+    for (const auto &cmd : commands) {
+        vector<string> tokens = TokenizeInput(cmd);
+        pid_t pid = fork();
+        if (pid < 0) {
+            cerr << "Fork failed" << endl;
+        } else if (pid == 0) {
+            ProcessCommand(tokens);
+            exit(0);
+        } else {
+            pids.push_back(pid);
+        }
+    }
+
+    //Wait for all child processes to complete
+    for (pid_t pid : pids) {
+        int status;
+        waitpid(pid, &status, 0);
+    }
+}
 
 vector<string> Shell::TokenizeInput(const string &input){
     string token;
@@ -148,26 +193,30 @@ void Shell::ProcessCommand(const vector<string>& tokens) {
 
     if (tokens[0] == "cd") {
         ProcessCD(tokens);
+
     } else if (tokens[0] == "pwd") {
         if (tokens.size() != 1) {
             cerr << "Error" << endl;
             return;
         }
         cout << GetCurrentDirectory() << endl;
+
     } else if (tokens[0] == "bash") {
         if (tokens.size() != 2) {
             cerr << "Error" << endl;
             return;
         }
         ProcessBatchFile(tokens[1]);
+
     } else if (tokens[0] == "exit") {
         if (tokens.size() != 1) {
             cerr << "Error" << endl;
             return;
         }
         exit(0);
+
     } else {
-        //For any command that isn't built-in, process it as an external command.
+        //For any command that isn't built-in, process it as an external command
         ProcessExternalCommand(tokens);
     }
 }
@@ -235,8 +284,12 @@ void Shell::GetUserInput(){
         if(!getline(cin, input)){
             return;
         }
-        vector<string> tokens = TokenizeInput(input);
-        ProcessCommand(tokens);
+        if(input.find('&') != string::npos) {
+            ProcessParallelCommands(input);
+        } else {
+            vector<string> tokens = TokenizeInput(input);
+            ProcessCommand(tokens);
+        }
     }
 }
 
