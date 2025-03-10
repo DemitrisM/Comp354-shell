@@ -16,15 +16,24 @@ This project is a simple Unix shell implemented in C++. It is designed as a lear
     External commands (e.g., ls) are executed using fork() and execvp(). The shell tokenizes user input and passes the arguments to the external program.
 
   - Batch Mode:
-    Batch mode is implemented as a built-in command (bash). When invoked (for example, by typing bash file.txt), the shell opens the given file, reads commands line by line, tokenizes them, and processes each command sequentially without printing a prompt.
+    Batch mode is implemented as a built-in command (bash). When invoked (for example, by typing bash file.txt), the shell opens the given file, reads commands line by line, tokenizes them, and processes each command sequentially without printing a prompt.\
+    For example:
     
 ```bash
 bash file.txt
 ```
   - Parallel Command Execution:
-    The shell supports executing multiple commands in parallel using the ampersand (&) operator. When an input line contains &, the shell splits it into separate commands, executes each in its own child process concurrently, and waits for all of them to complete before returning control to the user.
+    The shell supports executing multiple commands in parallel using the ampersand (&) operator. When an input line contains &, the shell splits it into separate commands, executes each in its own child process concurrently, and waits for all of them to complete before returning control to the user.\
+    For example:
 ```bash
 sleep 3 & echo "Hello" & ls
+```
+
+  - Redirection Feature:
+    This shell supports basic output redirection using the > operator. When you include > followed by a filename at the end of a command, the shell redirects both standard output and standard error of that command to the specified file.\
+    For example:
+```bash
+ls -l > output.txt
 ```
 
 ## How to Compile and Run
