@@ -54,14 +54,39 @@ void Shell::ProcessParallelCommands(const string &input) {
 }
 
 vector<string> Shell::TokenizeInput(const string &input){
-    string token;
     vector<string> tokens;
-    istringstream Stream(input);
-
-    while(Stream>>token){
-        tokens.push_back(token);
+    string current;
+    bool inSingleQuotes = false;
+    bool inDoubleQuotes = false;
+    
+    for (size_t i = 0; i < input.size(); ++i) {
+        char c = input[i];
+        // Toggle single-quote mode if we're not in double-quote mode.
+        if (c == '\'' && !inDoubleQuotes) {
+            inSingleQuotes = !inSingleQuotes;
+            continue;
+        }
+        // Toggle double-quote mode if we're not in single-quote mode.
+        else if (c == '\"' && !inSingleQuotes) {
+            inDoubleQuotes = !inDoubleQuotes;
+            continue;
+        }
+        // If we're not in quotes and see whitespace, that ends a token.
+        if (!inSingleQuotes && !inDoubleQuotes && isspace(static_cast<unsigned char>(c))) {
+            if (!current.empty()) {
+                tokens.push_back(current);
+                current.clear();
+            }
+        } 
+        else {
+            // Add the character to the current token.
+            current.push_back(c);
+        }
     }
-    //returns a vector containing the strings as tokens
+    // If there's any leftover token after the loop, add it.
+    if (!current.empty()) {
+        tokens.push_back(current);
+    }
     return tokens;
 }
 
