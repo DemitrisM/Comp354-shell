@@ -1,31 +1,14 @@
+#include "Shell.h"
 #include <iostream>
-#include <string>
-#include <unistd.h>
-#include <vector>
 #include <sstream>
-#include <bits/stdc++.h>
+#include <unistd.h>
 #include <sys/wait.h>
 #include <limits.h>
-#include <fcntl.h> 
+#include <fcntl.h>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
 using namespace std;
-
-class Shell {
-public:
-    void GetUserInput();
-    void ProcessBatchFile(const string &file);
-
-private:
-    string input;
-    vector<string> TokenizeInput(const string &input);
-    void ProcessCommand(const vector<string>& tokens);
-    void ProcessLS(const vector<string>& tokens);
-    void ProcessCD(const vector<string>& tokens);
-    void ProcessExternalCommand(const vector<string>& tokens);
-    void ProcessParallelCommands(const string &input); 
-    string Trim(const string &str);
-    string GetCurrentDirectory();
-    string GetUser();
-};
 
 string Shell::Trim(const string &str) {
     //Trims the whitespaces from the input
@@ -293,17 +276,4 @@ void Shell::GetUserInput(){
     }
 }
 
-int main(int argc, char* argv[]) {
-    Shell shell;
-    if (argc == 1) {
-        // Interactive mode.
-        shell.GetUserInput();
-    } else if (argc == 2) {
-        // Batch mode.
-        shell.ProcessBatchFile(argv[1]);
-    } else {
-        cerr << "Error: Too many arguments." << endl;
-        exit(1);
-    }
-    return 0;
-}
+
