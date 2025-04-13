@@ -42,8 +42,9 @@ Compilation
 Use a C++ compiler (e.g., g++) to compile the source code. For example:
 
 ```bash
-g++ -std=c++11 -o custom_shell Shell.cpp
+g++ -std=c++17 -o custom_shell main.cpp Shell.cpp
 ```
-
-
-(Replace Shell.cpp with the name of your source file.)
+and then
+```bash
+./custom_shell
+```
