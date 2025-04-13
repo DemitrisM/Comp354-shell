@@ -230,21 +230,20 @@ void Shell::ProcessCommand(const vector<string>& tokens) {
 }
 
 void Shell::ProcessCD(const vector<string>& tokens){
-    if (tokens.size() == 1){
-        //retrieves the value of the home directory
+    if (tokens.size() == 1) {
+        // No argument -> go HOME
         const char* home = getenv("HOME");
-        //if home is not set or we werent able to go the home directory, get an error message
-        if (home == nullptr || chdir(home) != 0) {
-            cerr << "Error" << endl;
+        if (!home || chdir(home) != 0) {
+            cerr << "cd: Failed to change directory to HOME.\n";
         }
-    }
-    else if(tokens.size() == 2){
-        if(chdir(tokens[1].c_str()) !=0){
-            cerr<<"Error"<<endl;
+    } else if (tokens.size() == 2) {
+        // 1 argument
+        if (chdir(tokens[1].c_str()) != 0) {
+            cerr << "cd: Failed to change directory to " << tokens[1] << endl;
         }
-    }
-    else{
-        cerr<<"Error"<<endl;
+    } else {
+        // Too many arguments
+        cerr << "Usage: cd [dir]\n";
     }
 }
 
