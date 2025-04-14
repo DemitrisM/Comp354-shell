@@ -16,6 +16,7 @@ private:
     vector<string> TokenizeInput(const string &input);
     void ProcessCommand(const vector<string>& tokens);
     void ProcessCD(const vector<string>& tokens);
+    void ProcessEcho(const vector<string> &tokens);
     void ProcessExternalCommand(const vector<string>& tokens);
     void ProcessParallelCommands(const string &input); 
     string Trim(const string &str);

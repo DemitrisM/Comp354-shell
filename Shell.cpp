@@ -223,6 +223,10 @@ void Shell::ProcessCommand(const vector<string>& tokens) {
         }
         exit(0);
 
+    } else if (tokens[0] == "echo"){
+        ProcessEcho(tokens);
+        return;
+
     } else {
         //For any command that isn't built-in, process it as an external command
         ProcessExternalCommand(tokens);
@@ -245,6 +249,23 @@ void Shell::ProcessCD(const vector<string>& tokens){
         // Too many arguments
         cerr << "Usage: cd [dir]\n";
     }
+}
+
+void ProcessEcho(const vector<string> &tokens) {
+    if (tokens.size() == 1) {
+        // echo with no arguments -> just print a blank line
+        cout << endl;
+        return;
+    }
+    
+    // Print tokens[1..end]
+    for (size_t i = 1; i < tokens.size(); ++i) {
+        cout << tokens[i];
+        if (i + 1 < tokens.size()) {
+            cout << " ";
+        }
+    }
+    cout << endl;
 }
 
 string Shell::GetUser(){
