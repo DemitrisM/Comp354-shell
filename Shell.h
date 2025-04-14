@@ -13,7 +13,9 @@ public:
 
 private:
     string input;
+    vector<string> history;
     vector<string> TokenizeInput(const string &input);
+    void HandleHistory(const vector<string> &tokens);
     void ProcessCommand(const vector<string>& tokens);
     void ProcessCD(const vector<string>& tokens);
     void ProcessEcho(const vector<string> &tokens);

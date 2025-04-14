@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <algorithm>
 using namespace std;
 
 string Shell::Trim(const string &str) {
@@ -156,10 +157,10 @@ void Shell::ProcessExternalCommand(const vector<string>& tokens) {
         }
         // Execute the external command.
         if (execvp(args[0], args.data()) == -1) {
-            perror("execvp failed");
+            cerr << args[0] << ": command not found" << endl;
             exit(1);
         }
-    } else {
+    } else {    
         // In the parent process, wait for the child to finish.
         int status;
         waitpid(pid, &status, 0);
@@ -177,8 +178,9 @@ void Shell::ProcessBatchFile(const string &file) {
     //If batch mode is invoked from within our shell,don't print a prompt.
     while(getline(batchFile, line)) {
         //Skip empty lines.
-        if (line.empty())
-            continue;
+        if (line.empty()) continue;
+        //Push to history
+        history.push_back(line);
         vector<string> tokens = TokenizeInput(line);
         ProcessCommand(tokens);
     }
@@ -196,6 +198,12 @@ string Shell::GetCurrentDirectory(){
 }
 
 void Shell::ProcessCommand(const vector<string>& tokens) {
+    cerr << "DEBUG: tokens[0] is ->" << tokens[0] << "<-\n";
+for (unsigned char c : tokens[0]) {
+    cerr << (int)c << " ";
+}
+cerr << endl;
+
     if (tokens.empty())
         return;
 
@@ -225,6 +233,10 @@ void Shell::ProcessCommand(const vector<string>& tokens) {
 
     } else if (tokens[0] == "echo"){
         ProcessEcho(tokens);
+        return;
+
+    } else if (tokens[0] == "history"){
+        HandleHistory(tokens);
         return;
 
     } else {
@@ -268,6 +280,17 @@ void ProcessEcho(const vector<string> &tokens) {
     cout << endl;
 }
 
+void Shell::HandleHistory(const vector<string> &tokens) {
+    if (tokens.size() != 1) {
+        cerr << "Usage: history" << endl;
+        return;
+    }
+    // Print all stored commands
+    for (size_t i = 0; i < history.size(); ++i) {
+        cout << i + 1 << "  " << history[i] << endl;
+    }
+}
+
 string Shell::GetUser(){
     string user = "Shell";
     string host = "COMP354";
@@ -281,6 +304,12 @@ void Shell::GetUserInput(){
         if(!getline(cin, input)){
             return;
         }
+        // Remove all '\r' characters from the end-user input
+        input.erase(remove(input.begin(), input.end(), '\r'), input.end());
+        // Push to history
+        if(!input.empty()) {
+            history.push_back(input);
+        }
         if(input.find('&') != string::npos) {
             ProcessParallelCommands(input);
         } else {
@@ -289,5 +318,3 @@ void Shell::GetUserInput(){
         }
     }
 }
-
-
