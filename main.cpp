@@ -1,19 +1,26 @@
+//------------------------------------------------------------------------------
+// main.cpp
+//------------------------------------------------------------------------------
+/**
+ * @file main.cpp
+ * @brief Entry point that launches the custom shell in interactive or batch mode.
+ */
 #include "Shell.h"
 #include <cstdlib>
 #include <iostream>
+
 using namespace std;
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
     Shell shell;
     if (argc == 1) {
-        // Interactive mode
-        shell.GetUserInput();
+        shell.GetUserInput();              //!< Interactive REPL
     } else if (argc == 2) {
-        // Batch mode - run commands from batch file.
-        shell.ProcessBatchFile(argv[1]);
+        shell.ProcessBatchFile(argv[1]);   //!< Batch mode from file
     } else {
         cerr << "Error: Too many arguments." << endl;
-        exit(1);
+        return EXIT_FAILURE;
     }
-    return 0;
+    return EXIT_SUCCESS;
 }
