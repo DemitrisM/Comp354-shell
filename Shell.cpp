@@ -1,38 +1,57 @@
+//------------------------------------------------------------------------------
+// Shell.cpp  -- full implementation with Doxygen comments
+//------------------------------------------------------------------------------
+
 #include "Shell.h"
-#include <iostream>
-#include <sstream>
-#include <unistd.h>
-#include <sys/wait.h>
+#include <algorithm>
+#include <cerrno>
 #include <climits>
-#include <fcntl.h>
 #include <cstdlib>
 #include <cstring>
+#include <fcntl.h>
 #include <fstream>
-#include <algorithm>
+#include <iostream>
+#include <sstream>
+#include <sys/wait.h>
+#include <unistd.h>
+
 using namespace std;
 
+//------------------------------------------------------------------------------
+/**
+ * @brief Trim leading and trailing whitespace from a string.
+ *
+ * Whitespace characters considered: space, tab, carriage‑return and newline.
+ *
+ * @param str String to be trimmed.
+ * @return A copy of @p str with surrounding whitespace removed.
+ */
 string Shell::Trim(const string &str) {
-    //Trims the whitespaces from the input
     size_t first = str.find_first_not_of(" \t\n\r");
     if (first == string::npos)
         return "";
     size_t last = str.find_last_not_of(" \t\n\r");
     return str.substr(first, last - first + 1);
 }
-
+/**
+ * @brief Execute several sub‑commands in parallel.
+ *
+ * Splits the raw @p input on the ampersand (‘&’) symbol, tokenises each part,
+ * forks once per sub‑command, and waits for all children to finish before
+ * returning.
+ *
+ * @param input Full command line that may contain one or more ‘&’.
+ */
 void Shell::ProcessParallelCommands(const string &input) {
-    //Split the input on '&' to get separate commands
     vector<string> commands;
     stringstream ss(input);
     string command;
     while(getline(ss, command, '&')) {
-        //Remove extra whitespace
         command = Trim(command); 
         if (!command.empty())
             commands.push_back(command);
     }
 
-    // Launch each command in its own child process.
     vector<pid_t> pids;
     for (const auto &cmd : commands) {
         vector<string> tokens = TokenizeInput(cmd);
@@ -47,13 +66,24 @@ void Shell::ProcessParallelCommands(const string &input) {
         }
     }
 
-    //Wait for all child processes to complete
     for (pid_t pid : pids) {
         int status;
         waitpid(pid, &status, 0);
     }
 }
 
+/**
+ * @brief Tokenise a command line while respecting single and double quotes.
+ *
+ * Rules  
+ *  • Outside quotes, any run of whitespace ends the current token.  
+ *  • Text inside single quotes (') is taken literally.  
+ *  • Text inside double quotes (") is taken literally and may coexist with
+ *    single‑quote sections.
+ *
+ * @param input Raw command string.
+ * @return Vector of parsed tokens.
+ */
 vector<string> Shell::TokenizeInput(const string &input){
     vector<string> tokens;
     string current;
@@ -91,6 +121,19 @@ vector<string> Shell::TokenizeInput(const string &input){
     return tokens;
 }
 
+/**
+ * @brief Fork and execute an external program, supporting one < and one > / >>.
+ *
+ * Recognised redirection operators:  
+ *  • `<  file`  – redirect stdin from @p file.  
+ *  • `>  file`  – redirect stdout to @p file (truncate).  
+ *  • `>> file`  – redirect stdout to @p file (append).  
+ *
+ * If more than one of the same operator is detected, the shell prints an
+ * error and returns.
+ *
+ * @param tokens Token vector containing command, args, and redirection ops.
+ */
 void Shell::ProcessExternalCommand(const vector<string>& tokens) {
     if (tokens.empty()) return;  // No command provided
     
@@ -233,6 +276,14 @@ void Shell::ProcessExternalCommand(const vector<string>& tokens) {
     }
 }
 
+/**
+ * @brief Execute commands from a batch file (non‑interactive mode).
+ *
+ * Reads @p file line‑by‑line, skips blanks, stores each line in history,
+ * tokenises, and dispatches with ProcessCommand().
+ *
+ * @param file Path to a text file containing one command per line.
+ */
 void Shell::ProcessBatchFile(const string &file) {
     ifstream batchFile(file);
     if (!batchFile.is_open()) {
@@ -253,6 +304,10 @@ void Shell::ProcessBatchFile(const string &file) {
     batchFile.close();
 }
 
+/**
+ * @brief Retrieve the absolute current working directory.
+ * @return Directory path on success, or the string \"unknown\" on failure.
+ */
 string Shell::GetCurrentDirectory(){
     char cwd[PATH_MAX];
     if (getcwd(cwd, sizeof(cwd)) != nullptr) {
@@ -263,6 +318,15 @@ string Shell::GetCurrentDirectory(){
     }
 }
 
+/**
+ * @brief Decide whether a token vector represents a built‑in or an external command.
+ *
+ * Delegates to the appropriate handler based on the first token:
+ * * cd, pwd, bash, exit, echo, history – built‑ins
+ * * otherwise – external via ProcessExternalCommand().
+ *
+ * @param tokens Parsed command tokens.
+ */
 void Shell::ProcessCommand(const vector<string>& tokens) {
     cerr << "DEBUG: tokens[0] is ->" << tokens[0] << "<-\n";
 for (unsigned char c : tokens[0]) {
@@ -311,6 +375,15 @@ cerr << endl;
     }
 }
 
+/**
+ * @brief Built‑in change‑directory command.
+ *
+ * * `cd` with no arguments → $HOME  
+ * * `cd <dir>`             → change to <dir>  
+ * * Any other arity prints a usage error.
+ *
+ * @param tokens Token vector beginning with \"cd\".
+ */
 void Shell::ProcessCD(const vector<string>& tokens){
     if (tokens.size() == 1) {
         // No argument -> go HOME
@@ -329,6 +402,10 @@ void Shell::ProcessCD(const vector<string>& tokens){
     }
 }
 
+/**
+ * @brief Built‑in echo command that prints its arguments.
+ * @param tokens Token vector beginning with \"echo\".
+ */
 void ProcessEcho(const vector<string> &tokens) {
     if (tokens.size() == 1) {
         // echo with no arguments -> just print a blank line
@@ -346,6 +423,10 @@ void ProcessEcho(const vector<string> &tokens) {
     cout << endl;
 }
 
+/**
+ * @brief Display the stored history of user commands.
+ * @param tokens Should contain only the word \"history\".
+ */
 void Shell::HandleHistory(const vector<string> &tokens) {
     if (tokens.size() != 1) {
         cerr << "Usage: history" << endl;
@@ -357,6 +438,10 @@ void Shell::HandleHistory(const vector<string> &tokens) {
     }
 }
 
+/**
+ * @brief Compose the interactive prompt string:  Shell@COMP354:/cwd$
+ * @return Prompt string.
+ */
 string Shell::GetUser(){
     string user = "Shell";
     string host = "COMP354";
@@ -364,6 +449,13 @@ string Shell::GetUser(){
     return user + "@" + host + ":" + cwd + "$ ";
 }
 
+
+/**
+ * @brief Main interactive REPL loop: print prompt, read line, parse, execute.
+ *
+ * Stores every non‑blank line into @c history, supports parallel (‘&’) commands
+ * as well as single‑command execution, and exits cleanly on EOF.
+ */
 void Shell::GetUserInput(){
     while(true){
         cout << GetUser();
