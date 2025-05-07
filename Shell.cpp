@@ -3,7 +3,7 @@
 #include <sstream>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <limits.h>
+#include <climits>
 #include <fcntl.h>
 #include <cstdlib>
 #include <cstring>
@@ -92,76 +92,142 @@ vector<string> Shell::TokenizeInput(const string &input){
 }
 
 void Shell::ProcessExternalCommand(const vector<string>& tokens) {
-    // Find the position of the redirection operator ">" if it exists.
-    size_t redirPos = -1;
+    if (tokens.empty()) return;  // No command provided
+    
+    // We'll look for up to ONE input redirection (<) and ONE output redirection (either > or >>).
+    size_t inPos = (size_t)-1;
+    size_t outPos = (size_t)-1;
+    bool appendMode = false; // Distinguish between > vs >> (false for truncate, true for append)
+
+    // 1) Parse tokens to find <, >, or >>
     for (size_t i = 0; i < tokens.size(); ++i) {
-        if (tokens[i] == ">") {
-            redirPos = i;
-            break;
+        if (tokens[i] == "<") {
+            // If we find multiple <, you might handle errors
+            if (inPos != (size_t)-1) {
+                cerr << "Error: multiple input redirections not supported\n";
+                return;
+            }
+            inPos = i;
+        }
+        else if (tokens[i] == ">>") {
+            // If we find multiple > or >>, handle error or last-one-wins
+            if (outPos != (size_t)-1) {
+                cerr << "Error: multiple output redirections not supported\n";
+                return;
+            }
+            outPos = i;
+            appendMode = true;
+        }
+        else if (tokens[i] == ">") {
+            if (outPos != (size_t)-1) {
+                cerr << "Error: multiple output redirections not supported\n";
+                return;
+            }
+            outPos = i;
+            appendMode = false;
         }
     }
-    // Prepare a vector for the actual command arguments (excluding redirection parts).
+
+    // 2) Extract the filenames from tokens (if any) and build the actual command tokens
+    string inputFile, outputFile;
     vector<string> cmdTokens;
-    string outputFile;
-    
-    if (redirPos != (size_t)-1) {
-        // Ensure that there is exactly one token after ">"
-        if (redirPos + 1 >= tokens.size() || redirPos + 2 < tokens.size()) {
-            cerr << "Error: invalid redirection" << endl;
+    cmdTokens.reserve(tokens.size()); 
+    // We'll skip the redirection operators + filenames when building cmdTokens
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        if (i == inPos || i == inPos + 1) continue;
+        if (i == outPos || i == outPos + 1) continue;
+        cmdTokens.push_back(tokens[i]);
+    }
+
+    // If we found <, parse input filename
+    if (inPos != (size_t)-1) {
+        // Need a token after '<'
+        if (inPos + 1 >= tokens.size()) {
+            cerr << "Error: no input file after <\n";
             return;
         }
-        // Command tokens are all tokens before the redirection operator.
-        for (size_t i = 0; i < redirPos; i++) {
-            cmdTokens.push_back(tokens[i]);
-        }
-        // The token immediately after ">" is the output filename.
-        outputFile = tokens[redirPos + 1];
-    } else {
-        // No redirection; use all tokens.
-        cmdTokens = tokens;
+        inputFile = tokens[inPos + 1];
     }
-    
-    // Convert cmdTokens to a C-style array for execvp.
+
+    // If we found > or >>
+    if (outPos != (size_t)-1) {
+        // Need a token after '>' or '>>'
+        if (outPos + 1 >= tokens.size()) {
+            cerr << "Error: no output file after > or >>\n";
+            return;
+        }
+        outputFile = tokens[outPos + 1];
+    }
+
+    // 3) Convert cmdTokens to a C-style array for execvp
+    if (cmdTokens.empty()) {
+        // Means user typed just redirection with no actual command, e.g. `< file` alone
+        cerr << "Error: no command specified\n";
+        return;
+    }
+
     vector<char*> args;
-    for (const auto &token : cmdTokens) {
-        args.push_back(const_cast<char*>(token.c_str()));
+    args.reserve(cmdTokens.size() + 1); // optional
+    for (auto &t : cmdTokens) {
+        args.push_back(const_cast<char*>(t.c_str()));
     }
     args.push_back(nullptr);
-    
-    // Fork a new process.
+
     pid_t pid = fork();
     if (pid < 0) {
-        cerr << "Fork failed" << endl;
+        cerr << "Fork failed\n";
         return;
-    } else if (pid == 0) {
-        // In the child process, if redirection is required, set it up.
-        if (!outputFile.empty()) {
-            // Open the output file (create/truncate it).
-            int fd = open(outputFile.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
-            if (fd < 0) {
-                perror("open failed");
+    }
+    else if (pid == 0) {
+        // CHILD process: set up redirections if needed
+
+        // a) Input redirection
+        if (!inputFile.empty()) {
+            int fdIn = open(inputFile.c_str(), O_RDONLY);
+            if (fdIn < 0) {
+                cerr << inputFile << ": " << strerror(errno) << endl;
                 exit(1);
             }
-            // Redirect stdout (fd 1) to the file descriptor.
-            if (dup2(fd, STDOUT_FILENO) < 0) {
-                perror("dup2 stdout failed");
+            if (dup2(fdIn, STDIN_FILENO) < 0) {
+                cerr << "dup2 stdin failed: " << strerror(errno) << endl;
                 exit(1);
             }
-            // Optionally, redirect stderr (fd 2) to the file as well:
-            if (dup2(fd, STDERR_FILENO) < 0) {
-                perror("dup2 stderr failed");
-                exit(1);
-            }
-            // Close the file descriptor, as it's no longer needed directly.
-            close(fd);
+            close(fdIn);
         }
-        // Execute the external command.
+
+        // b) Output redirection
+        if (!outputFile.empty()) {
+            int flags = O_CREAT | O_WRONLY;
+            if (appendMode) {
+                flags |= O_APPEND;
+            } else {
+                flags |= O_TRUNC;
+            }
+            int fdOut = open(outputFile.c_str(), flags, 0644);
+            if (fdOut < 0) {
+                cerr << outputFile << ": " << strerror(errno) << endl;
+                exit(1);
+            }
+            if (dup2(fdOut, STDOUT_FILENO) < 0) {
+                cerr << "dup2 stdout failed: " << strerror(errno) << endl;
+                exit(1);
+            }
+            // Optional: also redirect stderr to the same file
+            // if (dup2(fdOut, STDERR_FILENO) < 0) {
+            //     cerr << "dup2 stderr failed: " << strerror(errno) << endl;
+            //     exit(1);
+            // }
+            close(fdOut);
+        }
+
+        // c) Exec the command with search through PATH
         if (execvp(args[0], args.data()) == -1) {
             cerr << args[0] << ": command not found" << endl;
             exit(1);
         }
-    } else {    
-        // In the parent process, wait for the child to finish.
+    }
+    else {
+        // PARENT process: wait for child
         int status;
         waitpid(pid, &status, 0);
     }
